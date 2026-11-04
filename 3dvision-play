@@ -109,7 +109,7 @@ fi
 
 export ENABLE_3DVISION=1 NV3D_INPUT=$input NV3D_PATCH=0 NV3D_SWAP=$swap
 export __GL_GSYNC_ALLOWED=0 __GL_VRR_ALLOWED=0
-mpv --vo=gpu-next --gpu-api=vulkan --fs --hwdec=auto-safe \
+mpv --vo=gpu-next --gpu-api=vulkan --fs --ontop --force-window=immediate --hwdec=auto-safe \
     --video-aspect-override="$aspect" --keepaspect=yes \
     --osc=no --osd-level=0 --sub-visibility=no \
     --input-default-bindings=yes \
