@@ -45,6 +45,21 @@ Before playing: monitor at 120 Hz (`tools/set-120hz.sh` from 3dvisionlinux) and 
 
 Online videos (YouTube and every site yt-dlp supports), also from a browser button: see **online3dvideoplayer**.
 
+## Online videos: recent yt-dlp
+
+`3dvision-play` plays web videos (YouTube and every site supported by **yt-dlp**) through mpv, which uses yt-dlp to get the video. YouTube changes its site often and old yt-dlp versions stop working (errors like *"Requested format is not available"*, *"Sign in to confirm"* or the video simply not starting). The version in Debian/Ubuntu packages is usually too old, so install the latest one in `~/.local/bin` (it takes priority over the system one):
+
+```sh
+mkdir -p ~/.local/bin
+curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ~/.local/bin/yt-dlp
+chmod +x ~/.local/bin/yt-dlp
+yt-dlp --version        # check it is the new one (if not, ~/.local/bin is not in your PATH)
+```
+
+Update it from time to time, or whenever YouTube stops working: `yt-dlp -U`.
+
+Quality: up to 4K by default. To change it: `NV3D_YTDL_FORMAT="bestvideo[height<=1080]+bestaudio" 3dvision-play URL`.
+
 ## Keys
 
 mpv: **space** pause, **← →** ±5 s, **↑ ↓** ±1 min, **9 / 0** volume, **m** mute, **#** audio track, **q** quit. The OSD is hidden (it would be split between the two eyes).
@@ -103,6 +118,21 @@ Formato automático: primero por el nombre (`HSBS`, `H-SBS`, `Half-SBS`, `HOU`, 
 Antes de reproducir: monitor a 120 Hz (`tools/set-120hz.sh` de 3dvisionlinux) y compositor desactivado.
 
 Vídeos online (YouTube y todas las webs que admita yt-dlp), también con un botón en el navegador: ver **online3dvideoplayer**.
+
+## Vídeos online: yt-dlp reciente
+
+`3dvision-play` reproduce vídeos de internet (YouTube y todas las webs que admita **yt-dlp**) a través de mpv, que usa yt-dlp para obtener el vídeo. YouTube cambia su web a menudo y las versiones viejas de yt-dlp dejan de funcionar (errores como *"Requested format is not available"*, *"Sign in to confirm"* o simplemente el vídeo no arranca). La versión de los paquetes de Debian/Ubuntu suele estar demasiado vieja, así que instala la última en `~/.local/bin` (tiene prioridad sobre la del sistema):
+
+```sh
+mkdir -p ~/.local/bin
+curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ~/.local/bin/yt-dlp
+chmod +x ~/.local/bin/yt-dlp
+yt-dlp --version        # comprueba que es la nueva (si no, ~/.local/bin no está en tu PATH)
+```
+
+Actualízalo de vez en cuando, o cuando YouTube deje de funcionar: `yt-dlp -U`.
+
+Calidad: hasta 4K por defecto. Para cambiarla: `NV3D_YTDL_FORMAT="bestvideo[height<=1080]+bestaudio" 3dvision-play URL`.
 
 ## Teclas
 
