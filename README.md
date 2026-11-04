@@ -35,12 +35,15 @@ sudo apt install mpv ffmpeg
 3dvision-play --sub movie.en.srt movie.mkv  # external subtitles (.srt / .ass) in both eyes
 3dvision-play --sub-track 0 movie.mkv       # embedded text subtitles (track 0, 1...)
 3dvision-play --swap movie.mkv              # swap eyes
+3dvision-play "https://www.youtube.com/watch?v=..."   # online videos (needs a recent yt-dlp)
 3dvision-play --start=00:30:00 --aid=2 movie.mkv   # any other option goes to mpv
 ```
 
 Automatic format: first from the file name (`HSBS`, `H-SBS`, `Half-SBS`, `HOU`, `FSBS`...), otherwise from the frame size: 32:9 or wider → full SBS; nearly square or taller → full top-bottom; 16:9 → half SBS.
 
 Before playing: monitor at 120 Hz (`tools/set-120hz.sh` from 3dvisionlinux) and desktop compositing off.
+
+Online videos (YouTube and every site yt-dlp supports), also from a browser button: see **online3dvideoplayer**.
 
 ## Keys
 
@@ -91,12 +94,15 @@ sudo apt install mpv ffmpeg
 3dvision-play --sub peli.es.srt peli.mkv    # subtítulos externos (.srt / .ass) en los dos ojos
 3dvision-play --sub-track 0 peli.mkv        # subtítulos internos de texto (pista 0, 1...)
 3dvision-play --swap peli.mkv               # invertir ojos
+3dvision-play "https://www.youtube.com/watch?v=..."   # vídeos online (necesita un yt-dlp reciente)
 3dvision-play --start=00:30:00 --aid=2 peli.mkv   # cualquier otra opción va a mpv
 ```
 
 Formato automático: primero por el nombre (`HSBS`, `H-SBS`, `Half-SBS`, `HOU`, `FSBS`...) y si no, por el tamaño: 32:9 o más ancho → SBS completo; casi cuadrado o más alto → arriba/abajo completo; 16:9 → half SBS.
 
 Antes de reproducir: monitor a 120 Hz (`tools/set-120hz.sh` de 3dvisionlinux) y compositor desactivado.
+
+Vídeos online (YouTube y todas las webs que admita yt-dlp), también con un botón en el navegador: ver **online3dvideoplayer**.
 
 ## Teclas
 
