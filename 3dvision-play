@@ -1,0 +1,99 @@
+#!/bin/bash
+# 3dvision-play - reproductor de video 3D (SBS / arriba-abajo) para gafas NVIDIA 3D Vision.
+# Usa mpv (decodificacion por hardware, audio, avance...) con salida Vulkan a traves de la capa
+# 3dvisionlinux, que parte cada imagen en ojo izquierdo / derecho y la muestra a 120 Hz.
+#
+#   3dvision-play pelicula.mkv                 formato automatico (por tamano y nombre)
+#   3dvision-play --full pelicula.mkv          SBS completo  (p. ej. 3840x1080, 7680x2160)
+#   3dvision-play --half pelicula.mkv          half SBS      (p. ej. 1920x1080 con cada ojo comprimido)
+#   3dvision-play --tab / --htab pelicula.mkv  arriba/abajo completo / half
+#   3dvision-play --sub subtitulos.srt peli.mkv        subtitulos externos (.srt/.ass) en los dos ojos
+#   3dvision-play --sub-track 0 peli.mkv               subtitulos internos de texto (pista 0)
+#   3dvision-play --swap ...                   invertir ojos (tambien Ctrl+Shift+F7 durante el video)
+#   Cualquier otra opcion se pasa a mpv (p. ej. --start=00:10:00, --aid=2).
+set -e
+layout=auto; swap=0; sub=""; subtrack=""; mpvargs=(); file=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --full|--sbs) layout=full ;;
+    --half|--hsbs) layout=half ;;
+    --tab|--ou) layout=tab ;;
+    --htab|--hou) layout=htab ;;
+    --swap) swap=1 ;;
+    --sub) sub="$2"; shift ;;
+    --sub-track) subtrack="$2"; shift ;;
+    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    --*) mpvargs+=("$1") ;;
+    *) file="$1" ;;
+  esac
+  shift
+done
+[ -n "$file" ] || { sed -n '2,16p' "$0"; exit 1; }
+[ -f "$file" ] || { echo "No existe: $file"; exit 1; }
+command -v mpv >/dev/null || { echo "Falta mpv:  sudo apt install mpv"; exit 1; }
+
+# tamano del video
+W=0; H=0
+if command -v ffprobe >/dev/null; then
+  IFS=x read -r W H < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0:s=x "$file" | head -1)
+fi
+base=$(basename "$file" | tr '[:lower:]' '[:upper:]')
+if [ "$layout" = auto ]; then
+  case "$base" in
+    *HSBS*|*H-SBS*|*HALF-SBS*|*HALF.SBS*|*HALFSBS*) layout=half ;;
+    *HOU*|*H-OU*|*HTAB*|*H-TAB*|*HALF-OU*) layout=htab ;;
+    *FSBS*|*FULL-SBS*|*FULL.SBS*) layout=full ;;
+    *FOU*|*FULL-OU*|*FTAB*) layout=tab ;;
+  esac
+fi
+if [ "$layout" = auto ]; then
+  if [ "$W" -gt 0 ] && [ "$H" -gt 0 ]; then
+    # 32:9 o mas ancho -> SBS completo; casi cuadrado o mas alto -> arriba/abajo completo; 16:9 -> half SBS
+    if [ $((W * 10)) -ge $((H * 30)) ]; then layout=full
+    elif [ $((W * 10)) -le $((H * 12)) ]; then layout=tab
+    else layout=half; fi
+  else
+    echo "No puedo saber el formato (falta ffprobe: sudo apt install ffmpeg). Usa --full / --half / --tab / --htab"; exit 1
+  fi
+fi
+# proporcion de un ojo -> el reproductor muestra la imagen completa con esa proporcion; la capa
+# estira cada mitad al monitor entero y cada ojo queda con su forma correcta
+case "$layout" in
+  full) input=sbs; eyeW=$((W / 2)); eyeH=$H ;;
+  half) input=sbs; eyeW=$W; eyeH=$H ;;
+  tab)  input=tab; eyeW=$W; eyeH=$((H / 2)) ;;
+  htab) input=tab; eyeW=$W; eyeH=$H ;;
+esac
+aspect="16:9"
+[ "$W" -gt 0 ] && [ "$H" -gt 0 ] && aspect="$eyeW:$eyeH"
+echo "3dvision-play: ${W}x${H} -> $layout (ojo $aspect)"
+
+# subtitulos: se dibujan dentro de cada ojo (mpv los pondria encima de la imagen doble)
+vf=()
+tmpdir=""
+if [ -n "$subtrack" ]; then
+  command -v ffmpeg >/dev/null || { echo "Falta ffmpeg para extraer subtitulos"; exit 1; }
+  tmpdir=$(mktemp -d /tmp/3dvp.XXXXXX); sub="$tmpdir/sub.ass"
+  echo "Extrayendo subtitulos (pista $subtrack)..."
+  ffmpeg -v error -i "$file" -map "0:s:$subtrack" "$sub" || { echo "No se pudo extraer (solo subtitulos de texto: srt/ass)"; exit 1; }
+fi
+if [ -n "$sub" ]; then
+  [ -f "$sub" ] || { echo "No existe: $sub"; exit 1; }
+  [ -n "$tmpdir" ] || tmpdir=$(mktemp -d /tmp/3dvp.XXXXXX)
+  ext="${sub##*.}"; safe="$tmpdir/s.$ext"; [ "$sub" = "$safe" ] || cp "$sub" "$safe"
+  if [ "$input" = sbs ]; then
+    g="split[a][b];[a]crop=iw/2:ih:0:0,subtitles=$safe[l];[b]crop=iw/2:ih:iw/2:0,subtitles=$safe[r];[l][r]hstack"
+  else
+    g="split[a][b];[a]crop=iw:ih/2:0:0,subtitles=$safe[t];[b]crop=iw:ih/2:0:ih/2,subtitles=$safe[d];[t][d]vstack"
+  fi
+  vf=(--vf="lavfi=graph=%${#g}%$g" --hwdec=auto-copy-safe --sid=no)
+fi
+[ -n "$tmpdir" ] && trap 'rm -rf "$tmpdir"' EXIT
+
+export ENABLE_3DVISION=1 NV3D_INPUT=$input NV3D_PATCH=0 NV3D_SWAP=$swap
+export __GL_GSYNC_ALLOWED=0 __GL_VRR_ALLOWED=0
+mpv --vo=gpu-next --gpu-api=vulkan --fs --hwdec=auto-safe \
+    --video-aspect-override="$aspect" --keepaspect=yes \
+    --osc=no --osd-level=0 --sub-visibility=no \
+    --input-default-bindings=yes \
+    "${vf[@]}" "${mpvargs[@]}" "$file"
