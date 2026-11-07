@@ -11,6 +11,7 @@
 #   3dvision-play --sub subtitulos.srt peli.mkv        subtitulos externos (.srt/.ass) en los dos ojos
 #   3dvision-play --sub-track 0 peli.mkv               subtitulos internos de texto (pista 0)
 #   3dvision-play --swap ...                   invertir ojos (tambien Ctrl+Shift+F7 durante el video)
+#   3dvision-play /ruta/BLURAY  o  disco.iso   Blu-ray 3D sin recodificar (ver bluray/README.md)
 #   Cualquier otra opcion se pasa a mpv (p. ej. --start=00:10:00, --aid=2).
 set -e
 layout=auto; swap=0; sub=""; subtrack=""; mpvargs=(); file=""
@@ -23,13 +24,20 @@ while [ $# -gt 0 ]; do
     --swap) swap=1 ;;
     --sub) sub="$2"; shift ;;
     --sub-track) subtrack="$2"; shift ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
     --*) mpvargs+=("$1") ;;
     *) file="$1" ;;
   esac
   shift
 done
-[ -n "$file" ] || { sed -n '2,17p' "$0"; exit 1; }
+[ -n "$file" ] || { sed -n '2,18p' "$0"; exit 1; }
+# Blu-ray 3D (carpeta con BDMV o imagen ISO): decodificador MVC propio, sin recodificar
+case "$file" in *.iso|*.ISO) isbd=1 ;; *) isbd=0 ;; esac
+if [ -d "$file" ] || [ "$isbd" = 1 ]; then
+  bdargs=(); [ "$swap" = 1 ] && bdargs+=(--swap)
+  bd="$(command -v 3dvision-bd || echo "$(dirname "$0")/bluray/3dvision-bd")"
+  exec "$bd" "${bdargs[@]}" "${mpvargs[@]}" "$file"
+fi
 isurl=0
 case "$file" in http://*|https://*) isurl=1 ;; esac
 [ "$isurl" = 1 ] || [ -f "$file" ] || { echo "No existe: $file"; exit 1; }
