@@ -4,64 +4,126 @@
 # 3dvisionlinux, que parte cada imagen en ojo izquierdo / derecho y la muestra a 120 Hz.
 #
 #   3dvision-play pelicula.mkv                 formato automatico (por tamano y nombre)
+#   3dvision-play /ruta/CARPETA                todos los videos de la carpeta, en orden
 #   3dvision-play "https://youtube.com/..."    videos online (YouTube y todo lo que admita yt-dlp)
+#   3dvision-play "https://deovr.com/..."      DeoVR y webs compatibles (enlace de video, JSON o deovr://)
+#   3dvision-play --deovr URL                  tratar el enlace como una web compatible con DeoVR
+#   3dvision-play --quality 2160|1440|1080     calidad maxima de los videos online (por defecto 2160)
 #   3dvision-play --full pelicula.mkv          SBS completo  (p. ej. 3840x1080, 7680x2160)
 #   3dvision-play --half pelicula.mkv          half SBS      (p. ej. 1920x1080 con cada ojo comprimido)
 #   3dvision-play --tab / --htab pelicula.mkv  arriba/abajo completo / half
+#   3dvision-play --2d video.mp4               video normal (2D), sin las gafas
 #   3dvision-play --sub subtitulos.srt peli.mkv        subtitulos externos (.srt/.ass) en los dos ojos
 #   3dvision-play --sub-track 0 peli.mkv               subtitulos internos de texto (pista 0)
 #   3dvision-play --swap ...                   invertir ojos (tambien Ctrl+Shift+F7 durante el video)
 #   3dvision-play /ruta/BLURAY  o  disco.iso   Blu-ray 3D sin recodificar (ver bluray/README.md)
-#   Cualquier otra opcion se pasa a mpv (p. ej. --start=00:10:00, --aid=2).
+#   Cualquier otra opcion se pasa a mpv (p. ej. --start=00:10:00, --aid=2, --alang=spa).
+#   Los videos VR de 180 / 360 grados no se admiten: necesitan un visor VR (vrvideoplayer).
+#   Ventana para elegir el video, enlaces web y DeoVR: 3dvision-gui
 set -e
-layout=auto; swap=0; sub=""; subtrack=""; mpvargs=(); file=""
+layout=auto; swap=0; sub=""; subtrack=""; mpvargs=(); file=""; quality=2160; deovr=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --full|--sbs) layout=full ;;
     --half|--hsbs) layout=half ;;
     --tab|--ou) layout=tab ;;
     --htab|--hou) layout=htab ;;
+    --2d|--mono) layout=mono ;;
     --swap) swap=1 ;;
     --sub) sub="$2"; shift ;;
     --sub-track) subtrack="$2"; shift ;;
-    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    --quality) quality="$2"; shift ;;
+    --quality=*) quality="${1#--quality=}" ;;
+    --deovr) deovr=1 ;;
+    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
     --*) mpvargs+=("$1") ;;
     *) file="$1" ;;
   esac
   shift
 done
-[ -n "$file" ] || { sed -n '2,18p' "$0"; exit 1; }
+[ -n "$file" ] || { sed -n '2,22p' "$0"; exit 1; }
+here="$(dirname "$(readlink -f "$0")")"
+vrname='(^|[^A-Z0-9])(VR)?(180|360)([^0-9]|$)|(180|360)X(180|360)'  # 180 / 360 VR video names
+
+isbluray() {  # carpeta con BDMV/PLAYLIST (o la propia BDMV), o imagen ISO
+  case "$1" in *.iso|*.ISO) [ -f "$1" ] && return 0 ;; esac
+  [ -d "$1" ] || return 1
+  [ -d "$1/BDMV/PLAYLIST" ] || [ -d "$1/bdmv/playlist" ] || [ -d "$1/PLAYLIST" ] && return 0
+  return 1
+}
 # Blu-ray 3D (carpeta con BDMV o imagen ISO): decodificador MVC propio, sin recodificar
-case "$file" in *.iso|*.ISO) isbd=1 ;; *) isbd=0 ;; esac
-if [ -d "$file" ] || [ "$isbd" = 1 ]; then
+if isbluray "$file"; then
   bdargs=(); [ "$swap" = 1 ] && bdargs+=(--swap)
-  bd="$(command -v 3dvision-bd || echo "$(dirname "$0")/bluray/3dvision-bd")"
+  bd="$(command -v 3dvision-bd || echo "$here/bluray/3dvision-bd")"
   exec "$bd" "${bdargs[@]}" "${mpvargs[@]}" "$file"
 fi
-isurl=0
-case "$file" in http://*|https://*) isurl=1 ;; esac
-[ "$isurl" = 1 ] || [ -f "$file" ] || { echo "No existe: $file"; exit 1; }
 command -v mpv >/dev/null || { echo "Falta mpv:  sudo apt install mpv"; exit 1; }
+
+# carpeta: todos sus videos, en orden (el formato es el del primero)
+files=()
+if [ -d "$file" ]; then
+  while IFS= read -r -d '' f; do files+=("$f"); done < <(find "$file" -maxdepth 1 -type f \
+    \( -iname '*.mkv' -o -iname '*.mp4' -o -iname '*.m4v' -o -iname '*.avi' -o -iname '*.mov' -o -iname '*.wmv' \
+       -o -iname '*.ts' -o -iname '*.m2ts' -o -iname '*.mts' -o -iname '*.webm' -o -iname '*.mpg' -o -iname '*.mpeg' \
+       -o -iname '*.flv' -o -iname '*.ogv' -o -iname '*.vob' \) -print0 | sort -z -f)
+  # (sin los videos VR de 180 / 360 grados, por el nombre)
+  keep=()
+  for f in "${files[@]}"; do
+    if basename "$f" | tr '[:lower:]' '[:upper:]' | grep -Eq "$vrname"; then echo "3dvision-play: (video VR, se salta) $(basename "$f")"
+    else keep+=("$f"); fi
+  done
+  files=("${keep[@]}")
+  [ ${#files[@]} -gt 0 ] || { echo "No hay videos en la carpeta: $file"; exit 1; }
+  echo "3dvision-play: ${#files[@]} videos en la carpeta"
+  file="${files[0]}"
+fi
+
+isurl=0
+case "$file" in http://*|https://*|deovr://*) isurl=1 ;; esac
+case "$file" in *.json|*.JSON) [ -f "$file" ] && { isurl=1; deovr=1; } ;; esac
+[ "$isurl" = 1 ] || [ -f "$file" ] || { echo "No existe: $file"; exit 1; }
 
 # tamano del video
 W=0; H=0
 if [ "$isurl" = 1 ]; then
-  command -v yt-dlp >/dev/null || { echo "Falta yt-dlp (ver README: version reciente en ~/.local/bin)"; exit 1; }
-  # mejor calidad hasta 4K; mpv usara exactamente el mismo formato
-  ytfmt="${NV3D_YTDL_FORMAT:-bestvideo[height<=2160]+bestaudio/best}"
-  mpvargs=(--ytdl-format="$ytfmt" "${mpvargs[@]}")
+  # que es el enlace (YouTube y demas webs de yt-dlp, o DeoVR): titulo, tamano, formato 3D, si es VR
+  web="$(command -v 3dvision-web || echo "$here/3dvision-web")"
+  wargs=(--resolve --quality "$quality"); [ "$deovr" = 1 ] && wargs+=(--deovr)
+  case "$layout" in full) wargs+=(--full) ;; half) wargs+=(--half) ;; tab) wargs+=(--tab) ;; htab) wargs+=(--htab) ;; mono) wargs+=(--2d) ;; esac
   echo "3dvision-play: consultando el video online..."
-  info=$(yt-dlp --no-playlist --no-warnings -f "$ytfmt" --print "%(width)sx%(height)s" --print "%(title)s" "$file" 2>/dev/null || true)
-  IFS=x read -r W H <<< "$(echo "$info" | head -1)"
-  base=$(echo "$info" | sed -n 2p | tr '[:lower:]' '[:upper:]')
-  echo "3dvision-play: $(echo "$info" | sed -n 2p)"
+  declare -A R=()
+  while IFS='=' read -r k v; do R["$k"]="$v"; done < <(python3 "$web" "${wargs[@]}" "$file") || true
+  [ -n "${R[layout]}" ] || { echo "3dvision-play: no se pudo leer el enlace"; exit 1; }
+  echo "3dvision-play: ${R[title]}"
+  if [ -n "${R[projection]}" ] && [ "${R[projection]}" != flat ]; then
+    echo "3dvision-play: es un video VR (${R[projection]}): necesita un visor VR, no se puede ver con 3D Vision (usa vrvideoplayer)"
+    exit 2
+  fi
+  [ -n "${R[note]}" ] && echo "3dvision-play: ${R[note]}"
+  W="${R[width]}"; H="${R[height]}"
+  case "${R[layout]}" in sbs) layout=full ;; hsbs) layout=half ;; tab) layout=tab ;; htab) layout=htab ;; mono) layout=mono ;; esac
+  if [ "${R[ytdl]}" = 1 ]; then
+    yt="$HOME/.local/bin/yt-dlp"; [ -x "$yt" ] || yt="$(command -v yt-dlp || echo yt-dlp)"
+    mpvargs=(--ytdl-format="${NV3D_YTDL_FORMAT:-bestvideo[height<=$quality]+bestaudio/best[height<=$quality]/best}"
+             --script-opts-append=ytdl_hook-ytdl_path="$yt" "${mpvargs[@]}")
+  else
+    file="${R[url]}"   # DeoVR: el enlace directo del video elegido
+    mpvargs=(--ytdl=no --force-media-title="${R[title]}"
+             --user-agent="Mozilla/5.0 (X11; Linux x86_64) DeoVR/1.0 3dvisionvideoplayer" "${mpvargs[@]}")
+  fi
 elif command -v ffprobe >/dev/null; then
   IFS=x read -r W H < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0:s=x "$file" | head -1)
 fi
 case "$W" in ''|*[!0-9]*) W=0 ;; esac
 case "$H" in ''|*[!0-9]*) H=0 ;; esac
-[ "$isurl" = 1 ] || base=$(basename "$file" | tr '[:lower:]' '[:upper:]')
-if [ "$layout" = auto ]; then
+base=$(basename "$file" | tr '[:lower:]' '[:upper:]')
+if [ "$isurl" = 0 ] && [ "$layout" = auto ]; then
+  # videos VR de la camara o descargados: 180 / 360 en el nombre (_180_LR, VR180, 360x180...)
+  if echo "$base" | grep -Eq "$vrname"; then
+    echo "3dvision-play: parece un video VR de 180/360 grados (por el nombre): necesita un visor VR (vrvideoplayer)."
+    echo "               Si es una pelicula 3D normal, elige el formato: --full / --half / --tab / --htab"
+    exit 2
+  fi
   case "$base" in
     *HSBS*|*H-SBS*|*HALF-SBS*|*HALF.SBS*|*HALFSBS*|*"HALF SBS"*) layout=half ;;
     *HOU*|*H-OU*|*HTAB*|*H-TAB*|*HALF-OU*) layout=htab ;;
@@ -80,6 +142,16 @@ if [ "$layout" = auto ]; then
     else echo "No puedo saber el formato (falta ffprobe: sudo apt install ffmpeg). Usa --full / --half / --tab / --htab"; exit 1; fi
   fi
 fi
+# lista de reproduccion: el video (o los de la carpeta)
+[ ${#files[@]} -gt 0 ] || files=("$file")
+
+# video 2D: sin la capa 3D (se ve sin las gafas)
+if [ "$layout" = mono ]; then
+  echo "3dvision-play: video 2D (sin 3D)"
+  unset ENABLE_3DVISION
+  exec mpv --vo=gpu-next --fs --hwdec=auto-safe --input-default-bindings=yes "${mpvargs[@]}" "${files[@]}"
+fi
+
 # proporcion de un ojo -> el reproductor muestra la imagen completa con esa proporcion; la capa
 # estira cada mitad al monitor entero y cada ojo queda con su forma correcta
 case "$layout" in
@@ -121,4 +193,4 @@ mpv --vo=gpu-next --gpu-api=vulkan --fs --ontop --force-window=immediate --hwdec
     --video-aspect-override="$aspect" --keepaspect=yes \
     --osc=no --osd-level=0 --sub-visibility=no \
     --input-default-bindings=yes \
-    "${vf[@]}" "${mpvargs[@]}" "$file"
+    "${vf[@]}" "${mpvargs[@]}" "${files[@]}"

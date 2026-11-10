@@ -15,15 +15,31 @@ Plays **side-by-side (SBS)** and **top-bottom** 3D movies on a 120 Hz monitor wi
 
 It uses **mpv** (NVDEC hardware decoding, every format, audio, seeking) and the [**3dvisionlinux**](https://github.com/ArturViaderdev/Nvidia3dVisionLinux) layer, which in this mode does not touch the geometry: it takes the left and right half of every frame and shows each to its eye.
 
+Also: **3D Blu-ray** folders and ISOs without re-encoding, **YouTube 3D** and other web links, **DeoVR** (catalogue and login), whole folders, and a **window** to choose all that (`3dvision-gui`, the same one as VR Video Player without the VR options). VR videos (180° / 360°) need a VR headset: they are recognised and refused.
+
 ## Installation
 
 ```sh
-sudo apt install mpv ffmpeg
+sudo apt install mpv ffmpeg python3-tk python3-keyring
 # in the 3dvisionlinux folder (https://github.com/ArturViaderdev/Nvidia3dVisionLinux) (the layer needs the version with the video mode):
 ./install.sh
 # in this folder:
 ./install.sh
 ```
+
+## Window
+
+`3dvision-gui` (or **3D Vision Video Player** in the menu): choose a file, a folder, an ISO or a Blu-ray folder;
+a folder shows its videos (double click to open a subfolder, **Play whole folder** plays them all in order).
+**Web link…** opens a YouTube (or any yt-dlp site) link, taken from the clipboard if there is one; the window
+says what it is (title, quality, 3D layout) before playing. **DeoVR…** opens the DeoVR catalogue (below).
+Options: 3D format (automatic, full / half SBS, full / half top-bottom, 2D), swap eyes, online quality (4K,
+1440p, 1080p) and **Update yt-dlp**, audio language, start time and subtitles. The log at the bottom shows
+what the player says. Settings, recent files and the last folder are remembered
+(`~/.config/3dvisionvideoplayer/gui.json`).
+
+VR videos of 180° / 360° (by their name, `_180_LR`, `VR180`, `360x180`..., or by what the site says) are marked
+`[VR]` and are not played: they need a VR headset (VR Video Player).
 
 ## Usage
 
@@ -35,7 +51,11 @@ sudo apt install mpv ffmpeg
 3dvision-play --sub movie.en.srt movie.mkv  # external subtitles (.srt / .ass) in both eyes
 3dvision-play --sub-track 0 movie.mkv       # embedded text subtitles (track 0, 1...)
 3dvision-play --swap movie.mkv              # swap eyes
+3dvision-play --2d video.mp4                # a normal (2D) video, without the 3D layer
+3dvision-play /path/FOLDER                  # every video of the folder, in order (VR ones skipped)
 3dvision-play "https://www.youtube.com/watch?v=..."   # online videos (needs a recent yt-dlp)
+3dvision-play --quality 1080 URL            # maximum quality of online videos (2160 by default)
+3dvision-play "https://deovr.com/..."       # DeoVR video link (or deovr://, or its JSON)
 3dvision-play --start=00:30:00 --aid=2 movie.mkv   # any other option goes to mpv
 ```
 
@@ -80,7 +100,28 @@ yt-dlp --version        # check it is the new one (if not, ~/.local/bin is not i
 
 Update it from time to time, or whenever YouTube stops working: `yt-dlp -U`.
 
-Quality: up to 4K by default. To change it: `NV3D_YTDL_FORMAT="bestvideo[height<=1080]+bestaudio" 3dvision-play URL`.
+Quality: up to 4K by default; `--quality 1440` / `1080` (or the window's **Online quality**). A yt-dlp format of
+your own: `NV3D_YTDL_FORMAT="bestvideo[height<=1080]+bestaudio" 3dvision-play URL`. Online videos are 3D only
+when the video says so (YouTube's 3D metadata, or SBS / 3D / OU in the title or tags); otherwise they play in 2D.
+The window's **Update yt-dlp** downloads it the first time and updates it later.
+
+## DeoVR
+
+In the window, **DeoVR…** opens the catalogue of **deovr.com** (or of any site with the DeoVR API: write its
+address) with its categories and a search box; log in with your user to see your premium videos (**Remember**
+keeps the password in the system keyring, never in a file; an account saved by VR Video Player works too).
+Double click plays a video; you can also paste the link of a DeoVR video in the main window.
+
+Only 3D movies and flat-screen videos can be watched with 3D Vision: VR videos (most of DeoVR: 180° / 360° /
+fisheye) are recognised from the site's description and refused with a message. Command line:
+
+```sh
+3dvision-play "https://deovr.com/..."               # a DeoVR video
+3dvision-play --deovr URL                           # a page of another DeoVR-compatible site
+NV3D_DEOVR_LOGIN=user 3dvision-play URL             # logged in (password: NV3D_DEOVR_PASSWORD, keyring or asked)
+3dvision-web --deovr-list https://deovr.com         # the catalogue (JSON)
+3dvision-web --probe URL                            # what a link is (title, size, 3D layout, VR or not)
+```
 
 ## Keys
 
@@ -111,15 +152,31 @@ Reproduce películas 3D **lado a lado (SBS)** y **arriba/abajo** en el monitor d
 
 Funciona con **mpv** (decodificación por hardware NVDEC, todos los formatos, audio, avance) y la capa [**3dvisionlinux**](https://github.com/ArturViaderdev/Nvidia3dVisionLinux), que en este modo no toca la geometría: coge la mitad izquierda y la derecha de cada imagen y las muestra a cada ojo.
 
+Además: carpetas e ISOs de **Blu-ray 3D** sin recodificar, enlaces de **YouTube 3D** y otras webs, **DeoVR** (catálogo e inicio de sesión), carpetas enteras y una **ventana** para elegir todo eso (`3dvision-gui`, la misma que la de VR Video Player sin las opciones de VR). Los vídeos VR (180° / 360°) necesitan un visor VR: se reconocen y no se reproducen.
+
 ## Instalación
 
 ```sh
-sudo apt install mpv ffmpeg
+sudo apt install mpv ffmpeg python3-tk python3-keyring
 # en la carpeta 3dvisionlinux (https://github.com/ArturViaderdev/Nvidia3dVisionLinux) (la capa necesita la versión con el modo de vídeo):
 ./install.sh
 # en esta carpeta:
 ./install.sh
 ```
+
+## Ventana
+
+`3dvision-gui` (o **3D Vision Video Player** en el menú): elige un archivo, una carpeta, una ISO o la carpeta de un
+Blu-ray; una carpeta muestra sus vídeos (doble clic para entrar en una subcarpeta, **Reproducir carpeta entera**
+los pone todos en orden). **Enlace web…** abre un enlace de YouTube (o de cualquier web de yt-dlp), cogido del
+portapapeles si lo hay; la ventana dice qué es (título, calidad, formato 3D) antes de reproducirlo. **DeoVR…**
+abre el catálogo de DeoVR (más abajo). Opciones: formato 3D (automático, SBS completo / half, arriba/abajo
+completo / half, 2D), invertir ojos, calidad online (4K, 1440p, 1080p) y **Actualizar yt-dlp**, idioma del audio,
+punto de inicio y subtítulos. El registro de abajo muestra lo que dice el reproductor. Recuerda las opciones, los
+recientes y la última carpeta (`~/.config/3dvisionvideoplayer/gui.json`).
+
+Los vídeos VR de 180° / 360° (por el nombre, `_180_LR`, `VR180`, `360x180`..., o por lo que dice la web) salen
+marcados `[VR]` y no se reproducen: necesitan un visor VR (VR Video Player).
 
 ## Uso
 
@@ -131,7 +188,11 @@ sudo apt install mpv ffmpeg
 3dvision-play --sub peli.es.srt peli.mkv    # subtítulos externos (.srt / .ass) en los dos ojos
 3dvision-play --sub-track 0 peli.mkv        # subtítulos internos de texto (pista 0, 1...)
 3dvision-play --swap peli.mkv               # invertir ojos
+3dvision-play --2d video.mp4                # un vídeo normal (2D), sin la capa 3D
+3dvision-play /ruta/CARPETA                 # todos los vídeos de la carpeta, en orden (sin los VR)
 3dvision-play "https://www.youtube.com/watch?v=..."   # vídeos online (necesita un yt-dlp reciente)
+3dvision-play --quality 1080 URL            # calidad máxima de los vídeos online (2160 por defecto)
+3dvision-play "https://deovr.com/..."       # enlace de un vídeo de DeoVR (o deovr://, o su JSON)
 3dvision-play --start=00:30:00 --aid=2 peli.mkv   # cualquier otra opción va a mpv
 ```
 
@@ -177,7 +238,30 @@ yt-dlp --version        # comprueba que es la nueva (si no, ~/.local/bin no est�
 
 Actualízalo de vez en cuando, o cuando YouTube deje de funcionar: `yt-dlp -U`.
 
-Calidad: hasta 4K por defecto. Para cambiarla: `NV3D_YTDL_FORMAT="bestvideo[height<=1080]+bestaudio" 3dvision-play URL`.
+Calidad: hasta 4K por defecto; `--quality 1440` / `1080` (o **Calidad online** en la ventana). Un formato de
+yt-dlp propio: `NV3D_YTDL_FORMAT="bestvideo[height<=1080]+bestaudio" 3dvision-play URL`. Los vídeos online son 3D
+solo si el vídeo lo dice (metadatos 3D de YouTube, o SBS / 3D / OU en el título o las etiquetas); si no, se ven
+en 2D. **Actualizar yt-dlp** de la ventana lo descarga la primera vez y lo actualiza después.
+
+## DeoVR
+
+En la ventana, **DeoVR…** abre el catálogo de **deovr.com** (o de cualquier web con la API de DeoVR: escribe su
+dirección) con sus categorías y un buscador; inicia sesión con tu usuario para ver tus vídeos premium
+(**Recordar** guarda la contraseña en el llavero del sistema, nunca en un archivo; también vale una cuenta
+guardada por VR Video Player). Doble clic reproduce un vídeo; también puedes pegar el enlace de un vídeo de
+DeoVR en la ventana principal.
+
+Con 3D Vision solo se pueden ver películas 3D y vídeos de pantalla plana: los vídeos VR (la mayoría de DeoVR:
+180° / 360° / ojo de pez) se reconocen por la descripción de la web y no se reproducen (sale un aviso). Línea de
+comandos:
+
+```sh
+3dvision-play "https://deovr.com/..."               # un vídeo de DeoVR
+3dvision-play --deovr URL                           # una página de otra web compatible con DeoVR
+NV3D_DEOVR_LOGIN=usuario 3dvision-play URL          # con sesión (contraseña: NV3D_DEOVR_PASSWORD, llavero o se pregunta)
+3dvision-web --deovr-list https://deovr.com         # el catálogo (JSON)
+3dvision-web --probe URL                            # qué es un enlace (título, tamaño, formato 3D, si es VR)
+```
 
 ## Teclas
 
